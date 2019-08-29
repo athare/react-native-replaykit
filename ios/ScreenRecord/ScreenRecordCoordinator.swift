@@ -14,17 +14,19 @@ import AVKit
     var recordCompleted:((Error?) ->Void)?
     let previewDelegateView = PreviewDelegateView()
     var showOverlay: Bool?
-
+    
     init(showOverlay: Bool)
     {
         super.init()
         self.showOverlay = showOverlay
         
         viewOverlay.onStopClick = {
-            self.stopRecording()
+            self.stopRecording() { (error, result) in
+                // do nothing
+            }
         }
     }
-
+    
     func startRecording(withFileName fileName: String, recordingHandler: @escaping (Error?) -> Void,onCompletion: @escaping (Error?)->Void)
     {
         if (self.showOverlay!) {
@@ -35,14 +37,15 @@ import AVKit
             self.recordCompleted = onCompletion
         }
     }
-
-    func stopRecording()
+    
+    func stopRecording(withHandler handler: @escaping (Error?, Dictionary<String, Any>) -> Void)
     {
         if (self.showOverlay!) {
             self.viewOverlay.hide()
         }
-        screenRecorder.stopRecording { (error) in
+        screenRecorder.stopRecording { (error, result) in
             self.recordCompleted?(error)
+            handler(error, result)
         }
     }
     
@@ -68,20 +71,20 @@ import AVKit
             // handle error with onPreviewError config or something that is one of the init config options
         }
     }
-
+    
     func listAllReplays() -> Array<String>
     {
         return ReplayFileUtil.fetchAllReplays()
     }
-
-
+    
+    
 }
 
 class PreviewDelegateView: UIViewController, UINavigationControllerDelegate, UIVideoEditorControllerDelegate {
     
     var coordinator: ScreenRecordCoordinator!
     var isSaved:Bool = false
-
+    
     func setCoordinator(coordinator: ScreenRecordCoordinator) -> Void {
         self.coordinator = coordinator
     }

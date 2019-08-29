@@ -28,7 +28,7 @@ RCT_EXPORT_METHOD(startRecording:(RCTResponseSenderBlock)callback)
     NSNumber *timeStampObj = [NSNumber numberWithInteger: [[NSNumber numberWithDouble: timeStamp] integerValue] ];
     NSMutableString *fileName = [[NSMutableString alloc] initWithString:@"Recording-"];
     [fileName appendString: [timeStampObj stringValue]];
-
+    
     [self.screenRecordCoordinator
      startRecordingWithFileName:fileName
      recordingHandler:^(NSError *error) {
@@ -81,10 +81,18 @@ RCT_EXPORT_METHOD(getRecordings:(RCTResponseSenderBlock)callback)
 
 RCT_EXPORT_METHOD(stopRecording:(RCTResponseSenderBlock)callback)
 {
-    [self.screenRecordCoordinator stopRecording];
-    NSArray *recordings = [self.screenRecordCoordinator listAllReplays];
-    callback(@[recordings]);
-    
+    [self.screenRecordCoordinator
+     stopRecordingWithHandler: ^(NSError *error, NSDictionary *result) {
+         if(error)
+         {
+             callback(@[[NSNull null], error.localizedDescription]);
+         }
+         else
+         {
+             callback(@[result]);
+         }
+     }
+     ];
 }
 
 RCT_EXPORT_METHOD(previewRecording:(NSString *)path)
@@ -97,4 +105,4 @@ RCT_EXPORT_METHOD(previewRecording:(NSString *)path)
 RCT_EXPORT_MODULE()
 
 @end
-  
+
