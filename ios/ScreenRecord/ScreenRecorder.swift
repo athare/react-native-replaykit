@@ -13,6 +13,7 @@ import AVKit
 @objc class ScreenRecorder:NSObject
 {
     var assetWriter:AVAssetWriter!
+    var finishCalled = false;
     var videoInput:AVAssetWriterInput!
     var audioInput:AVAssetWriterInput!
     var fileURL:URL!
@@ -22,6 +23,8 @@ import AVKit
     //MARK: Screen Recording
     public func startRecording(withFileName fileName: String, recordingHandler:@escaping (Error?)-> Void)
     {
+        self.finishCalled = false
+        
         if #available(iOS 11.0, *)
         {
             self.fileURL = URL(fileURLWithPath: ReplayFileUtil.filePath(fileName))
@@ -33,11 +36,13 @@ import AVKit
                 AVVideoHeightKey : UIScreen.main.bounds.size.height
             ];
             
+            
             var channelLayout = AudioChannelLayout.init()
-            channelLayout.mChannelLayoutTag = kAudioChannelLayoutTag_MPEG_5_1_D
+            channelLayout.mChannelLayoutTag = kAudioChannelLayoutTag_Mono
             let audioOutputSettings:Dictionary<String, Any> = [
-                AVNumberOfChannelsKey: 6,
-                AVFormatIDKey: kAudioFormatMPEG4AAC_HE,
+                AVNumberOfChannelsKey: 1,
+                AVEncoderBitRateKey: 64000,
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
                 AVSampleRateKey: 44100,
                 AVChannelLayoutKey: NSData(bytes: &channelLayout, length: MemoryLayout.size(ofValue: channelLayout)),
             ];
@@ -59,7 +64,7 @@ import AVKit
                 
                 recordingHandler(error)
                 
-                if CMSampleBufferDataIsReady(sample)
+                if CMSampleBufferDataIsReady(sample) && !self.finishCalled && self.assetWriter != nil
                 {
                     if self.assetWriter.status == AVAssetWriter.Status.unknown
                     {
@@ -72,16 +77,35 @@ import AVKit
                         return
                     }
                     
-                    if (bufferType == .video)
+                    if (bufferType == .video && self.assetWriter.status != AVAssetWriter.Status.completed)
                     {
                         if self.videoInput.isReadyForMoreMediaData
                         {
+                            print("Writing video sample...")
                             self.videoInput.append(sample)
                         }
+                        else
+                        {
+                            print("Video stream not ready...");
+                        }
                     }
-                    else if (bufferType == .audioMic)
+                    
+                    if (bufferType == .audioMic && self.assetWriter.status != AVAssetWriter.Status.completed)
                     {
-                        self.audioInput.append(sample)
+                        if self.audioInput.isReadyForMoreMediaData
+                        {
+                            print("Writing audio sample...")
+                            self.audioInput.append(sample)
+                        }
+                        else
+                        {
+                            print("Audio stream not ready...");
+                        }
+                    }
+                    
+                    if (bufferType == .audioApp)
+                    {
+                        print("Received app audio...");
                     }
                 }
                 
@@ -97,6 +121,7 @@ import AVKit
     
     public func stopRecording(handler: @escaping (Error?, Dictionary<String, Any>) -> Void)
     {
+        self.finishCalled = true
         if #available(iOS 11.0, *)
         {
             RPScreenRecorder.shared().stopCapture { (Error) in
